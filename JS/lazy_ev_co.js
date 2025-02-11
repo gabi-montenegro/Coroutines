@@ -105,7 +105,7 @@ function send(iterable, receiver, {log = false} = {}) {
         if (log) {
             console.log(x);
         }
-        receiver.next(x);
+        receiver.next(x); //envia para o gerador
     }
     receiver.return(); // signal end of stream
 }
