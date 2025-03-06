@@ -11,6 +11,7 @@ const normalizeText = coroutine(function* (receiver) {
     try {
         while (true) {
             let line = yield;
+            if (!line.trim()) break; // Para o pipeline ao encontrar uma linha em branco
             let words = line.trim().split(/\s+/); // Divide a linha em palavras normalizando espaços
             for (let word of words) {
                 receiver.next(word); // Envia palavra por palavra
@@ -27,6 +28,8 @@ const wrapText = coroutine(function* (receiver) {
     try {
         while (true) {
             let word = yield;
+            if (!word) break; // Se a palavra for undefined, para tudo
+
             if (buffer.length + word.length + (buffer ? 1 : 0) > 30) { 
                 receiver.next(buffer); // Envia linha formatada
                 buffer = word; // Começa nova linha
@@ -44,7 +47,9 @@ const wrapText = coroutine(function* (receiver) {
 const printText = coroutine(function* () {
     try {
         while (true) {
-            console.log(yield);
+            let line = yield;
+            if (!line) break; // Para o processamento se receber um valor vazio
+            console.log(line);
         }
     } finally {
         console.log("DONE");
@@ -56,6 +61,7 @@ function sendString(inputString, receiver) {
     let lines = inputString.split("\n"); // Divide a string em linhas
     for (let line of lines) {
         receiver.next(line);
+        if (!line.trim()) break; // Se encontrar uma linha vazia, interrompe o envio
     }
     receiver.return();
 }
@@ -63,7 +69,9 @@ function sendString(inputString, receiver) {
 // Entrada como única string
 const INPUT = `asdfkj asfdlkjasd  flkajsdfzzzzz laksjdf alkj                                        
 asd  flajdsf laksjd   lakjdfla skdj                                            
-as dlfkjasdl   fkja d  `;
+as dlfkjasdl   fkja d  
+
+aaaaaasss`;
 
 // Configuração do pipeline
 const CHAIN = normalizeText(wrapText(printText()));
