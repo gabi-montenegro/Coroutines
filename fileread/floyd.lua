@@ -7,6 +7,24 @@ printText = coroutine.create(function()
     print("DONE")
 end)
 
+
+-- Corrotina que formata o texto em linhas de no máximo 30 caracteres
+wrapText = coroutine.create(function()
+    local buffer = ""
+    while true do
+        local word = coroutine.yield()
+        if not word then break end
+        
+
+        if #buffer + #word + (buffer ~= "" and 1 or 0) > 30 then
+            coroutine.resume(printText, buffer) -- Envia a linha formatada
+            buffer = word
+        else
+            buffer = buffer .. (buffer ~= "" and " " or "") .. word
+        end
+    end
+end)
+
 splitter = coroutine.create(function()
     while true do
         local line = coroutine.yield()
@@ -23,7 +41,7 @@ splitter = coroutine.create(function()
 
         -- Envia cada palavra para a corrotina de impressão
         for _, word in ipairs(words) do
-            coroutine.resume(printText, word)
+            coroutine.resume(wrapText, word)
         end
 
     end
