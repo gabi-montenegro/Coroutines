@@ -19,7 +19,7 @@ function consumer(producer_coroutine)
 end
 
 producer = coroutine.create(producer)
-
+print(type(producer))
 cons = coroutine.create(function()
     consumer(producer)
 end)
