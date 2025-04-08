@@ -5,7 +5,7 @@ function* calleeFunc() {
 }
 
 function* callerFunc() {
-    let yieldStarResult;
+    let yieldStartResult;
 
     const calleeObj = calleeFunc();
     let prevReceived = undefined;
@@ -15,7 +15,7 @@ function* callerFunc() {
             const { value, done } = calleeObj.next(prevReceived);
             console.log(value);
             if (done) {
-                yieldStarResult = value;
+                yieldStartResult = value;
                 break;
             }
             prevReceived = yield value; // envia o value para o chamador, no caso eh o generator no main
@@ -25,7 +25,7 @@ function* callerFunc() {
         }
     }
 
-    return yieldStarResult;
+    return yieldStartResult;
 }
 
 const generator = callerFunc();
