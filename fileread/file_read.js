@@ -55,7 +55,7 @@ const numberLines = coroutine(function* (target) {
     try {
         for (let lineNo = 1; ; lineNo++) {
             let line = yield;
-            target.next(`${lineNo}: ${line}`);
+            target.next(`Linha ${lineNo}: ${line}`);
         }
     } finally {
         // Signal end of output sequence
