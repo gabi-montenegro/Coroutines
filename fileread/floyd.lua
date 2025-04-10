@@ -8,15 +8,21 @@ printText = coroutine.create(function()
 end)
 
 
--- Corrotina que formata o texto em linhas de no máximo 30 caracteres
+-- Corrotina que formata o texto em linhas de no máximo 30 caracteres, problema aqui
 wrapText = coroutine.create(function()
     local buffer = ""
     while true do
         local word = coroutine.yield()
-        if not word then break end
-        
-
+        if not word then
+            -- Imprime o que restar no buffer antes de finalizar
+            if buffer ~= "" then
+                coroutine.resume(printText, buffer)
+            end
+            break
+        end
+        -- print("word: " .. word)
         if #buffer + #word + (buffer ~= "" and 1 or 0) > 30 then
+            -- print("my buffer: " .. buffer )
             coroutine.resume(printText, buffer) -- Envia a linha formatada
             buffer = word
         else
@@ -53,7 +59,7 @@ function readFile(fileName)
     if not file then error("Could not open file: " .. fileName) end
 
     -- Garante que a corrotina esteja pronta para começar
-    coroutine.resume(splitter)  -- Inicia a corrotina explicitamente, sem essa inicializacao a primeira linha do arquivo nao eh exibida
+    -- coroutine.resume(splitter)  -- Inicia a corrotina explicitamente, sem essa inicializacao a primeira linha do arquivo nao eh exibida
 
     for line in file:lines() do
         coroutine.resume(splitter, line) -- Envia cada linha para a corrotina de impressão
@@ -63,9 +69,14 @@ function readFile(fileName)
     coroutine.resume(splitter, nil) -- Indica o fim da leitura
 end
 
-
+activateCoroutines = function()
+    coroutine.resume(splitter)
+    coroutine.resume(wrapText)
+    coroutine.resume(printText)
+end
 
 
 -- Executa a leitura do arquivo enviando as linhas diretamente para printText
 local fileName = "input.txt"
+activateCoroutines()
 readFile(fileName)

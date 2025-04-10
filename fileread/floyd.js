@@ -11,7 +11,7 @@ function readFile(fileName, target) {
     });
 }
 
-const splitChunkInLines = coroutine(function* (target) {
+const splitLines = coroutine(function* (target) {
     let previous = '';
     let blankLine = false;
     try {
@@ -20,14 +20,14 @@ const splitChunkInLines = coroutine(function* (target) {
             let lineIndex;
             while ((lineIndex = previous.indexOf('\n')) >= 0) {
                 let line = previous.slice(0, lineIndex);  // Extrai a linha
-                previous = previous.slice(lineIndex + 1);  // Atualiza o buffer com o restante
-
+                
                 if (line.trim() === '') {
                     blankLine = true;
-                    return;  // Interrompe se encontrar uma linha vazia
+                    break;  // Interrompe se encontrar uma linha vazia
                 }
-
+                
                 target.next(line);  // Envia a linha para ser impressa
+                previous = previous.slice(lineIndex + 1);  // Atualiza o buffer com o restante
             }
         }
     } finally {
@@ -59,10 +59,8 @@ const wrapText = coroutine(function* (target) {
     try {
         while (true) {
             let word = yield;
-            if (!word) break;  // Se a palavra for undefined, para tudo
-
+            // if (!word) break;  // Se a palavra for undefined, para tudo
             if (buffer.length + word.length + (buffer ? 1 : 0) > 30) { // o ternario eh para contabilizar o espaco entre as palavras caso haja um buffer
-                // console.log('my buffer: ' + buffer);
                 target.next(buffer);  // Envia a linha formatada
                 buffer = word;  // Começa nova linha
             } else {
@@ -71,19 +69,15 @@ const wrapText = coroutine(function* (target) {
         }
 
     } finally {
-        // if (buffer) target.next(buffer); // Envia última linha
+        if (buffer) target.next(buffer); // Envia última linha
         target.return();
     }
 });
 
 const printLines = coroutine(function* () {
-    try {
-        while (true) {
-            let buffer = yield;
-            console.log(buffer);  // Imprime a linha
-        }
-    } finally {
-        console.log("DONE");  // Imprime "DONE" após o processamento
+    while (true) {
+        let line = yield;
+        console.log(line);
     }
 });
 
@@ -96,4 +90,4 @@ function coroutine(generatorFunction) {
 }
 
 let fileName = process.argv[2];
-readFile(fileName, splitChunkInLines(normalizeWordsLines(wrapText(printLines()))));
+readFile(fileName, splitLines(normalizeWordsLines(wrapText(printLines()))));

@@ -1,32 +1,27 @@
 -- Corrotina final que imprime a linha diretamente
-local printLines = coroutine.wrap(function()
+local printLines = coroutine.create(function ()
     while true do
         local line = coroutine.yield()
-        if not line then break end
         print(line)
     end
 end)
 
 -- Corrotina que numera as linhas e envia para printLines
-local numberLines = coroutine.wrap(function()
+local numberLines = coroutine.create(function ()
     local lineNo = 1
-
     while true do
         local line = coroutine.yield()
-        if not line then break end -- controle do nil importante para parar a corrotina quando não temos o coroutine.close
-        printLines(string.format("%d: %s", lineNo, line))
+        coroutine.resume(printLines, string.format("%d: %s", lineNo, line))
         lineNo = lineNo + 1
     end
 end)
 
 -- Corrotina que quebra os chunks em linhas
-local splitLines = coroutine.wrap(function()
+local splitLines = coroutine.create(function ()
     local previous = ""
-
     while true do
         local chunk = coroutine.yield()
         if not chunk then break end
-
         previous = previous .. chunk
         while true do
             local lineEnd = string.find(previous, "\n", 1, true)
@@ -35,17 +30,14 @@ local splitLines = coroutine.wrap(function()
             local line = string.sub(previous, 1, lineEnd - 1)
             previous = string.sub(previous, lineEnd + 1)
 
-            numberLines(line)
+            coroutine.resume(numberLines, line)
+        
         end
     end
-
     if #previous > 0 then
-        numberLines(previous)
+        coroutine.resume(numberLines, previous)
     end
-    numberLines(nil)
 end)
-
-
 
 -- Leitura de arquivo em chunks
 function readFile(fileName, chunkSize)
@@ -53,22 +45,26 @@ function readFile(fileName, chunkSize)
     while true do
         local chunk = file:read(chunkSize)
         if not chunk then break end
-        splitLines(chunk)
+        coroutine.resume(splitLines, chunk)
     end
-
     file:close()
-    splitLines(nil)
+
+    -- Processa o último pedaço pendente (se houver)
+    coroutine.resume(splitLines, nil) -- Indica o fim da leitura
+
+    -- Fecha todas as corrotinas (Lua 5.4+)
+    coroutine.close(splitLines)
+    coroutine.close(numberLines)
+    coroutine.close(printLines)
 end
 
--- Inicializa as corrotinas (sem enviar dados)
 function activateCoroutines()
-    splitLines()
-    numberLines()
-    printLines()
-end 
+    coroutine.resume(splitLines)
+    coroutine.resume(numberLines)
+    coroutine.resume(printLines)
+end
 
-
--- Executa (note que não há ativação inicial)
+-- Executa
 local fileName = "input.txt"
 activateCoroutines()
 readFile(fileName, 16)

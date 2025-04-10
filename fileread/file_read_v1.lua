@@ -1,6 +1,5 @@
 splitChunkInLines = coroutine.create(function()
     local previous = ""
-    local blankLine = false
 
     while true do
         local chunk = coroutine.yield()
