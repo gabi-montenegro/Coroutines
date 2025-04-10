@@ -53,7 +53,7 @@ function readFile(fileName, chunkSize)
     coroutine.resume(splitLines, nil) -- Indica o fim da leitura
 
     -- Fecha todas as corrotinas (Lua 5.4+)
-    coroutine.close(splitLines)
+    -- coroutine.close(splitLines)
     coroutine.close(numberLines)
     coroutine.close(printLines)
 end
