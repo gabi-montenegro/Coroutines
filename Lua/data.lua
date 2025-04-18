@@ -4,9 +4,9 @@ function transformSequence(a)
     return b - 1 -- corrotina retomada com c sendo (b+1) -> 23
 end
 
-co = coroutine.create(transformSequence)
+co = coroutine.create(transformSequence(10))
 
-success, c = coroutine.resume(co, 10, 22) -- A corrotina recebe 20 e retorna 22 (20 + 2)
+success, c = coroutine.resume(co, 10) -- A corrotina recebe 20 e retorna 22 (20 + 2)
 print(success)
 print("c:", c)
 
