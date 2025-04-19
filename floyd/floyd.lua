@@ -1,40 +1,32 @@
-printText = coroutine.create(function()
+-- Corrotina final que imprime a linha diretamente
+local printLines = coroutine.wrap(function()
     while true do
         local line = coroutine.yield()
         if not line then break end
         print(line)
     end
-    print("DONE")
 end)
 
-
--- Corrotina que formata o texto em linhas de no máximo 30 caracteres, problema aqui
-wrapText = coroutine.create(function()
+local wrapText = coroutine.wrap(function()
     local buffer = ""
     while true do
         local word = coroutine.yield()
-        if not word then
-            -- Imprime o que restar no buffer antes de finalizar
-            if buffer ~= "" then
-                coroutine.resume(printText, buffer)
-            end
-            break
-        end
-        -- print("word: " .. word)
+        if not word then break end -- controle do nil é importante para parar a corrotina
         if #buffer + #word + (buffer ~= "" and 1 or 0) > 30 then
-            -- print("my buffer: " .. buffer )
-            coroutine.resume(printText, buffer) -- Envia a linha formatada
+            printLines(buffer)
             buffer = word
         else
             buffer = buffer .. (buffer ~= "" and " " or "") .. word
         end
     end
+    if #buffer > 0 then printLines(buffer) end
+    printLines(nil)
 end)
 
-splitter = coroutine.create(function()
+local normalizeWordsLines = coroutine.wrap(function()
     while true do
         local line = coroutine.yield()
-
+        if not line then break end
         if line:match("^%s*(.-)%s*$") == '' then break end --linha vazia
 
         -- local words = line:match("^%s*(.-)%s*$"):gsub("%s+", " ").split(" ") -- Divide a linha em palavras normalizando espaços
@@ -47,36 +39,67 @@ splitter = coroutine.create(function()
 
         -- Envia cada palavra para a corrotina de impressão
         for _, word in ipairs(words) do
-            coroutine.resume(wrapText, word)
+            wrapText(word)
         end
 
     end
 
+    wrapText(nil)
+
 end)
 
-function readFile(fileName)
-    local file = io.open(fileName, "r")
-    if not file then error("Could not open file: " .. fileName) end
+-- Corrotina que quebra os chunks em linhas
+local splitLines = coroutine.wrap(function()
+    local previous = ""
+    local blankLine = false
+    while true do
+        local chunk = coroutine.yield()
+        if not chunk then break end -- nil indica o fim da leitura
+        previous = previous .. chunk
+        while true do
+            local lineEnd = string.find(previous, "\n", 1, true)
 
-    -- Garante que a corrotina esteja pronta para começar
-    -- coroutine.resume(splitter)  -- Inicia a corrotina explicitamente, sem essa inicializacao a primeira linha do arquivo nao eh exibida
+            if not lineEnd then break end
+            local line = string.sub(previous, 1, lineEnd - 1)
+            if line:match("^%s*(.-)%s*$") == '' then 
+                blankLine = true
+                break 
+            end --linha vazia
+            
+            normalizeWordsLines(line)
 
-    for line in file:lines() do
-        coroutine.resume(splitter, line) -- Envia cada linha para a corrotina de impressão
+            previous = string.sub(previous, lineEnd + 1)
+        end
+    end
+
+    if not blankLine and #previous > 0 then
+        normalizeWordsLines(previous)
+    end
+    normalizeWordsLines(nil)
+end)
+
+
+
+-- Leitura de arquivo em chunks
+function readFile(fileName, chunkSize)
+    local file = io.open(fileName, "rb")
+    while true do
+        local chunk = file:read(chunkSize)
+        if not chunk then break end
+        splitLines(chunk)
     end
 
     file:close()
-    coroutine.resume(splitter, nil) -- Indica o fim da leitura
+    splitLines(nil)
 end
 
-activateCoroutines = function()
-    coroutine.resume(splitter)
-    coroutine.resume(wrapText)
-    coroutine.resume(printText)
+-- Inicializa as corrotinas (sem enviar dados)
+function activateCoroutines()
+    splitLines()
+    normalizeWordsLines()
+    wrapText()
+    printLines()
 end
 
-
--- Executa a leitura do arquivo enviando as linhas diretamente para printText
-local fileName = "input.txt"
 activateCoroutines()
-readFile(fileName)
+readFile("input.txt", 16)

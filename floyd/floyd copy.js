@@ -43,6 +43,7 @@ const normalizeWordsLines = coroutine(function* (target) {
     try {
         while (true) {
             let line = yield;
+            if (!line.trim()) break;  // Para o pipeline ao encontrar uma linha em branco
             let words = line.trim().replace(/\s+/g, ' ').split(' ');  // Divide a linha em palavras normalizando espaços
             for (let word of words) {
                 target.next(word);  // Envia a linha completa
