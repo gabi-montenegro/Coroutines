@@ -49,11 +49,11 @@ function readFile(fileName, chunkSize)
     end
     file:close()
 
-    -- Processa o último pedaço pendente (se houver)
+    -- Processa o último pedaço pendente despertado no #previous > 0 do splitLines
     coroutine.resume(splitLines, nil) -- Indica o fim da leitura
 
     -- Fecha todas as corrotinas (Lua 5.4+)
-    -- coroutine.close(splitLines)
+    coroutine.close(splitLines)
     coroutine.close(numberLines)
     coroutine.close(printLines)
 end
@@ -65,6 +65,6 @@ function activateCoroutines()
 end
 
 -- Executa
-local fileName = "input.txt"
+local fileName = arg[1]
 activateCoroutines()
 readFile(fileName, 16)
