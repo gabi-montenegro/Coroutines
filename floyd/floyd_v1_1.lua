@@ -1,5 +1,5 @@
 -- Corrotina final que imprime a linha diretamente
-local printLines = coroutine.create(function()
+local printLines = coroutine.wrap(function()
     while true do
         local line = coroutine.yield()
         if not line then break end
@@ -7,22 +7,23 @@ local printLines = coroutine.create(function()
     end
 end)
 
-local wrapText = coroutine.create(function()
+local wrapText = coroutine.wrap(function()
     local buffer = ""
     while true do
         local word = coroutine.yield()
         if not word then break end -- controle do nil é importante para parar a corrotina
         if #buffer + #word + (buffer ~= "" and 1 or 0) > 30 then
-            coroutine.resume(printLines, buffer)
+            printLines(buffer)
             buffer = word
         else
             buffer = buffer .. (buffer ~= "" and " " or "") .. word
         end
     end
-    if #buffer > 0 then coroutine.resume(printLines, buffer) end
+    if #buffer > 0 then printLines(buffer) end
+    printLines(nil)
 end)
 
-local normalizeWordsLines = coroutine.create(function()
+local normalizeWordsLines = coroutine.wrap(function()
     while true do
         local line = coroutine.yield()
         if not line then break end
@@ -38,25 +39,26 @@ local normalizeWordsLines = coroutine.create(function()
 
         -- Envia cada palavra para a corrotina de impressão
         for _, word in ipairs(words) do
-            coroutine.resume(wrapText, word)
+            wrapText(word)
         end
+
     end
 
-    coroutine.resume(wrapText, nil)
+    wrapText(nil)
 
 end)
 
 -- Corrotina que quebra os chunks em linhas
-local splitLines = coroutine.create(function()
+local splitLines = coroutine.wrap(function()
     local previous = ""
     local blankLine = false
     while true do
         local chunk = coroutine.yield()
-        if not chunk then break end
-
+        if not chunk then break end -- nil indica o fim da leitura
         previous = previous .. chunk
         while true do
             local lineEnd = string.find(previous, "\n", 1, true)
+
             if not lineEnd then break end
             local line = string.sub(previous, 1, lineEnd - 1)
             if line:match("^%s*(.-)%s*$") == '' then 
@@ -64,16 +66,16 @@ local splitLines = coroutine.create(function()
                 break 
             end --linha vazia
             
-            coroutine.resume(normalizeWordsLines, line)
+            normalizeWordsLines(line)
 
             previous = string.sub(previous, lineEnd + 1)
         end
     end
 
     if not blankLine and #previous > 0 then
-        coroutine.resume(normalizeWordsLines, previous)
+        normalizeWordsLines(previous)
     end
-    coroutine.resume(wrapText, nil)
+    normalizeWordsLines(nil)
 end)
 
 
@@ -84,26 +86,20 @@ function readFile(fileName, chunkSize)
     while true do
         local chunk = file:read(chunkSize)
         if not chunk then break end
-        coroutine.resume(splitLines, chunk)
+        splitLines(chunk)
     end
 
     file:close()
-    coroutine.resume(splitLines, nil)
-
-    -- Fecha todas as corrotinas (Lua 5.4+)
-    coroutine.close(normalizeWordsLines)
-    coroutine.close(wrapText)
-    coroutine.close(printLines)
+    splitLines(nil)
 end
 
+-- Inicializa as corrotinas (sem enviar dados)
 function activateCoroutines()
-    coroutine.resume(splitLines)
-    coroutine.resume(normalizeWordsLines)
-    coroutine.resume(wrapText)
-    coroutine.resume(printLines)
+    splitLines()
+    normalizeWordsLines()
+    wrapText()
+    printLines()
 end
 
--- Executa (note que não há ativação inicial)
-local fileName = arg[1]
 activateCoroutines()
-readFile(fileName, 16)
+readFile("input.txt", 16)

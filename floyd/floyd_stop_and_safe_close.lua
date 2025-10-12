@@ -1,8 +1,16 @@
--- Corrotina final que imprime a linha diretamente
+local STOP = "__STOP__"
+
+local function safe_close(co)
+    if coroutine.status(co) ~= "dead" then
+        coroutine.close(co)
+    end
+end
+
 local printLines = coroutine.create(function()
     while true do
         local line = coroutine.yield()
-        if not line then break end
+
+        if not line or line == STOP then break end
         print(line)
     end
 end)
@@ -11,7 +19,15 @@ local wrapText = coroutine.create(function()
     local buffer = ""
     while true do
         local word = coroutine.yield()
-        if not word then break end -- controle do nil é importante para parar a corrotina
+
+        if not word or word == STOP then
+            if #buffer > 0 then 
+                coroutine.resume(printLines, buffer) 
+            end
+            coroutine.resume(printLines, STOP)
+            break
+        end
+
         if #buffer + #word + (buffer ~= "" and 1 or 0) > 30 then
             coroutine.resume(printLines, buffer)
             buffer = word
@@ -19,39 +35,35 @@ local wrapText = coroutine.create(function()
             buffer = buffer .. (buffer ~= "" and " " or "") .. word
         end
     end
-    if #buffer > 0 then coroutine.resume(printLines, buffer) end
 end)
 
 local normalizeWordsLines = coroutine.create(function()
     while true do
         local line = coroutine.yield()
-        if not line then break end
-        if line:match("^%s*(.-)%s*$") == '' then break end --linha vazia
-
-        -- local words = line:match("^%s*(.-)%s*$"):gsub("%s+", " ").split(" ") -- Divide a linha em palavras normalizando espaços
-
-        --divide a linha em palavras, sem espaços irredundantes
-        local words = {}
-        for word in string.gmatch(line, "[^%s]+") do
-            table.insert(words, word)
+        if not line or line == STOP then
+            coroutine.resume(wrapText, STOP)
+            break
         end
 
-        -- Envia cada palavra para a corrotina de impressão
-        for _, word in ipairs(words) do
+        
+        if line:match("^%s*$") then
+            coroutine.resume(wrapText, STOP)
+            break
+        end
+
+        
+        for word in string.gmatch(line, "[^%s]+") do
             coroutine.resume(wrapText, word)
         end
     end
-
-    coroutine.resume(wrapText, nil)
-
 end)
 
--- Corrotina que quebra os chunks em linhas
+
 local splitLines = coroutine.create(function()
     local previous = ""
-    local blankLine = false
     while true do
         local chunk = coroutine.yield()
+
         if not chunk then break end
 
         previous = previous .. chunk
@@ -59,24 +71,23 @@ local splitLines = coroutine.create(function()
             local lineEnd = string.find(previous, "\n", 1, true)
             if not lineEnd then break end
             local line = string.sub(previous, 1, lineEnd - 1)
-            if line:match("^%s*(.-)%s*$") == '' then 
-                blankLine = true
-                break 
-            end --linha vazia
-            
-            coroutine.resume(normalizeWordsLines, line)
 
+            -- linha em branco sinaliza parada geral
+            if line:match("^%s*$") then
+                coroutine.resume(normalizeWordsLines, STOP)
+                return
+            end
+
+            coroutine.resume(normalizeWordsLines, line)
             previous = string.sub(previous, lineEnd + 1)
         end
     end
 
-    if not blankLine and #previous > 0 then
+    if #previous > 0 then
         coroutine.resume(normalizeWordsLines, previous)
     end
-    coroutine.resume(wrapText, nil)
+    coroutine.resume(normalizeWordsLines, STOP)
 end)
-
-
 
 -- Leitura de arquivo em chunks
 function readFile(fileName, chunkSize)
@@ -86,16 +97,17 @@ function readFile(fileName, chunkSize)
         if not chunk then break end
         coroutine.resume(splitLines, chunk)
     end
-
     file:close()
+
     coroutine.resume(splitLines, nil)
 
-    -- Fecha todas as corrotinas (Lua 5.4+)
-    coroutine.close(normalizeWordsLines)
-    coroutine.close(wrapText)
-    coroutine.close(printLines)
+    -- Fecha todas as corrotinas com segurança (Lua 5.4+)
+    safe_close(normalizeWordsLines)
+    safe_close(wrapText)
+    safe_close(printLines)
 end
 
+-- Ativa as corrotinas uma única vez
 function activateCoroutines()
     coroutine.resume(splitLines)
     coroutine.resume(normalizeWordsLines)
@@ -103,7 +115,7 @@ function activateCoroutines()
     coroutine.resume(printLines)
 end
 
--- Executa (note que não há ativação inicial)
+-- Execução principal
 local fileName = arg[1]
 activateCoroutines()
 readFile(fileName, 16)

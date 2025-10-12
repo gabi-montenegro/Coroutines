@@ -1,4 +1,3 @@
-Este é um exemplo simples de   texto
-a ser processado. 
-A execução do programa deve 
-formatar este texto adequadamente.
+Este é um exemplo simples de   texto a ser processado. A execução do programa deve formatar este texto adequadamente.
+
+Outro paragrafo.
