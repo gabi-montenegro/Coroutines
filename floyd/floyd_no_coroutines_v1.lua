@@ -9,7 +9,7 @@ local function processFile(fileName)
     local buffer = ""  -- acumula as palavras até 30 caracteres
 
     while true do
-        local line = file:read("*l")  -- lê linha por linha
+        local line = file:read("*l")  -- lê linha por linha ***Otimizado pois já lê em linhas
         if not line then break end
 
         -- se linha em branco → encerra o processamento
