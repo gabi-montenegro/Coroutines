@@ -1,93 +1,117 @@
 local BLANK_LINE = false
 
--- Imprime as linhas formatadas
-local function printLines(line)
-    print(line)
-end
-
--- Agrupa palavras em linhas de até 30 caracteres
--- Recebe o buffer atual e retorna o buffer atualizado
-local function wrapText(words, buffer, flush)
-    for _, word in ipairs(words) do
-        if #buffer + #word + (#buffer > 0 and 1 or 0) > 30 then
-            printLines(buffer)
-            buffer = word
-        else
-            buffer = buffer .. (#buffer > 0 and " " or "") .. word
-        end
-    end
-
-    -- Quando flush é true, imprime o restante
-    if flush and #buffer > 0 then
-        printLines(buffer)
-        buffer = ""
-    end
-
-    return buffer
-end
-
--- Divide linha em palavras
-local function normalizeWordsLines(line)
-    local words = {}
-    for word in string.gmatch(line, "[^%s]+") do
-        table.insert(words, word)
-    end
-    return words
-end
-
--- Separa blocos de texto em linhas
-local function splitLines(chunk, previous)
-    previous = (previous or "") .. chunk
-    local allLines = {}
-
+local printLines = coroutine.create(function()
     while true do
-        local lineEnd = string.find(previous, "\n", 1, true)
-        if not lineEnd then break end
+        local line = coroutine.yield()
 
-        local line = string.sub(previous, 1, lineEnd - 1)
+        if not line then break end
 
-        if line:match("^%s*$") then
-            BLANK_LINE = true
+        print(line)
+    end
+end)
+
+local wrapText = coroutine.create(function()
+    local buffer = ""
+    while true do
+        local word = coroutine.yield()
+
+        if not word then
             break
         end
 
-        table.insert(allLines, line)
-        previous = string.sub(previous, lineEnd + 1)
-    end
-
-    return allLines, previous
-end
-
--- Lê o arquivo em blocos e processa o texto
-local function readFile(fileName, chunkSize)
-    local file = io.open(fileName, "rb")
-    local previous = ""
-    local buffer = ""  -- agora o buffer é local
-
-    while not BLANK_LINE do
-        local chunk = file:read(chunkSize)
-        if not chunk then break end
-
-        local lines
-        lines, previous = splitLines(chunk, previous)
-        
-        for _, line in ipairs(lines) do
-            local words = normalizeWordsLines(line)
-            buffer = wrapText(words, buffer) -- buffer faz parte do paragrafo
+        if #buffer + #word + (buffer ~= "" and 1 or 0) > 30 then
+            coroutine.resume(printLines, buffer)
+            buffer = word
+        else
+            buffer = buffer .. (buffer ~= "" and " " or "") .. word
         end
     end
 
-    -- Processa o conteúdo restante quando a linha em branco nao foi detectada
-    if not BLANK_LINE and #previous > 0 then
-        local words = normalizeWordsLines(previous)
-        buffer = wrapText(words, buffer)
+    if #buffer > 0 then 
+        coroutine.resume(printLines, buffer) 
     end
-    wrapText({}, buffer, true) -- o buffer final nunca vai passar de 30 caracteres
-    -- Imprime o restante do buffer
+    coroutine.resume(printLines, nil)
 
+end)
+
+local normalizeWordsLines = coroutine.create(function()
+    while true do
+        local line = coroutine.yield()
+        if not line then
+            coroutine.resume(wrapText, nil)
+            break
+        end
+        
+        for word in string.gmatch(line, "[^%s]+") do
+            coroutine.resume(wrapText, word)
+        end
+    end
+end)
+
+
+local splitLines = coroutine.create(function()
+    local previous = ""
+    while true do
+        local chunk = coroutine.yield()
+
+        if not chunk then break end
+
+        previous = previous .. chunk
+
+        while true do
+            local lineEnd = string.find(previous, "\n", 1, true)
+
+            if not lineEnd then break end
+            local line = string.sub(previous, 1, lineEnd - 1)
+
+            -- linha em branco
+            if line:match("^%s*$") then 
+                BLANK_LINE = true 
+                break
+            end
+
+            coroutine.resume(normalizeWordsLines, line)
+            previous = string.sub(previous, lineEnd + 1)
+        end
+    end
+
+    if not BLANK_LINE and #previous > 0 then
+        coroutine.resume(normalizeWordsLines, previous)
+    end
+    coroutine.resume(normalizeWordsLines, nil)
+end)
+
+-- Leitura de arquivo em chunks
+function readFile(fileName, chunkSize)
+    local file = io.open(fileName, "rb")
+
+    while not BLANK_LINE do
+        local chunk = file:read(chunkSize)
+
+        if not chunk then break end
+
+        coroutine.resume(splitLines, chunk)
+        
+    end
     file:close()
+
+    coroutine.resume(splitLines, nil)
+
+    
+    coroutine.close(normalizeWordsLines)
+    coroutine.close(wrapText)
+    coroutine.close(printLines)
+end
+
+-- Ativa as corrotinas uma única vez
+function activateCoroutines()
+    coroutine.resume(splitLines)
+    coroutine.resume(normalizeWordsLines)
+    coroutine.resume(wrapText)
+    coroutine.resume(printLines)
 end
 
 -- Execução principal
 local fileName = arg[1]
+activateCoroutines()
 readFile(fileName, 16)
