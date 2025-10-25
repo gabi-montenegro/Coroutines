@@ -1,4 +1,4 @@
-Este é um exemplo simples de   texto 
+Este é um exemplo simples de   texto           
 a ser processado. 
 A execução do programa deve 
 formatar este texto adequadamente.
