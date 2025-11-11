@@ -38,7 +38,6 @@ local normalizeWordsLines = coroutine.create(function()
     while true do
         local line = coroutine.yield()
         if not line then
-            coroutine.resume(wrapText, nil)
             break
         end
         
@@ -46,6 +45,7 @@ local normalizeWordsLines = coroutine.create(function()
             coroutine.resume(wrapText, word)
         end
     end
+    coroutine.resume(wrapText, nil)
 end)
 
 
@@ -64,7 +64,6 @@ local splitLines = coroutine.create(function()
             if not lineEnd then break end
             local line = string.sub(previous, 1, lineEnd - 1)
 
-            -- linha em branco
             if line:match("^%s*$") then 
                 BLANK_LINE = true 
                 break
@@ -81,7 +80,6 @@ local splitLines = coroutine.create(function()
     coroutine.resume(normalizeWordsLines, nil)
 end)
 
--- Leitura de arquivo em chunks
 function readFile(fileName, chunkSize)
     local file = io.open(fileName, "rb")
 
@@ -96,14 +94,8 @@ function readFile(fileName, chunkSize)
     file:close()
 
     coroutine.resume(splitLines, nil)
-
-    
-    coroutine.close(normalizeWordsLines)
-    coroutine.close(wrapText)
-    coroutine.close(printLines)
 end
 
--- Ativa as corrotinas uma única vez
 function activateCoroutines()
     coroutine.resume(splitLines)
     coroutine.resume(normalizeWordsLines)
@@ -111,7 +103,6 @@ function activateCoroutines()
     coroutine.resume(printLines)
 end
 
--- Execução principal
 local fileName = arg[1]
 activateCoroutines()
 readFile(fileName, 16)

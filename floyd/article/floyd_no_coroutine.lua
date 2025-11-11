@@ -1,12 +1,9 @@
 local BLANK_LINE = false
 
--- Imprime as linhas formatadas
 local function printLines(line)
     print(line)
 end
 
--- Agrupa palavras em linhas de até 30 caracteres
--- Recebe o buffer atual e retorna o buffer atualizado
 local function wrapText(words, buffer, flush)
     for _, word in ipairs(words) do
         if #buffer + #word + (#buffer > 0 and 1 or 0) > 30 then
@@ -17,7 +14,6 @@ local function wrapText(words, buffer, flush)
         end
     end
 
-    -- Quando flush é true, imprime o restante
     if flush and #buffer > 0 then
         printLines(buffer)
         buffer = ""
@@ -26,7 +22,6 @@ local function wrapText(words, buffer, flush)
     return buffer
 end
 
--- Divide linha em palavras
 local function normalizeWordsLines(line)
     local words = {}
     for word in string.gmatch(line, "[^%s]+") do
@@ -35,7 +30,6 @@ local function normalizeWordsLines(line)
     return words
 end
 
--- Separa blocos de texto em linhas
 local function splitLines(chunk, previous)
     previous = (previous or "") .. chunk
     local allLines = {}
@@ -58,11 +52,10 @@ local function splitLines(chunk, previous)
     return allLines, previous
 end
 
--- Lê o arquivo em blocos e processa o texto
 local function readFile(fileName, chunkSize)
     local file = io.open(fileName, "rb")
     local previous = ""
-    local buffer = ""  -- agora o buffer é local
+    local buffer = "" 
 
     while not BLANK_LINE do
         local chunk = file:read(chunkSize)
@@ -73,21 +66,18 @@ local function readFile(fileName, chunkSize)
         
         for _, line in ipairs(lines) do
             local words = normalizeWordsLines(line)
-            buffer = wrapText(words, buffer) -- buffer faz parte do paragrafo
+            buffer = wrapText(words, buffer)
         end
     end
 
-    -- Processa o conteúdo restante quando a linha em branco nao foi detectada
     if not BLANK_LINE and #previous > 0 then
         local words = normalizeWordsLines(previous)
         buffer = wrapText(words, buffer)
     end
-    wrapText({}, buffer, true) -- o buffer final nunca vai passar de 30 caracteres
-    -- Imprime o restante do buffer
+    wrapText({}, buffer, true)
 
     file:close()
 end
 
--- Execução principal
 local fileName = arg[1]
 readFile(fileName, 16)
