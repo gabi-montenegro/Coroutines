@@ -1,0 +1,61 @@
+const { createReadStream } = require('fs');
+
+function readFile(fileName, target) {
+    let readStream = createReadStream(fileName, { encoding: 'utf8', bufferSize: 1024 });
+    readStream.on('data', buffer => {
+        let str = buffer.toString('utf8');
+        target.next(str);
+    });
+    readStream.on('end', () => {
+        target.return();
+    });
+}
+
+const splitLines = coroutine(function* (target) {
+    let previous = '';
+    try {
+        while (true) {
+            previous += yield;
+            let eolIndex;
+            while ((eolIndex = previous.indexOf('\n')) >= 0) {
+                let line = previous.slice(0, eolIndex);
+                target.next(line);
+                previous = previous.slice(eolIndex+1);
+            }
+        }
+    } finally {
+        if (previous.length > 0) {
+            target.next(previous);
+        }
+        target.return();
+    }
+});
+
+const numberLines = coroutine(function* (target) {
+    try {
+        for (let lineNo = 1; ; lineNo++) {
+            let line = yield;
+            target.next(`Linha ${lineNo}: ${line}`);
+        }
+    } finally {
+        target.return();
+    }
+});
+
+const printLines = coroutine(function* () {
+    while (true) {
+        let line = yield;
+        console.log(line);
+    }
+});
+
+function coroutine(generatorFunction) {
+    return function (...args) {
+        let generatorObject = generatorFunction(...args);
+        generatorObject.next();
+        return generatorObject;
+    };
+}
+
+let fileName = process.argv[2];
+readFile(fileName, splitLines(numberLines(printLines())));
